@@ -257,10 +257,21 @@ export default function App() {
 
     // 모바일: PDF 생성 → 공유(Share Sheet) → 블루투스/AirPrint 프린터
     setPrinting(true)
+    const el = document.getElementById('report-print')
     try {
-      // 인쇄 대상 요소
-      const el = document.getElementById('report-print')
       if (!el) { window.print(); return }
+
+      // ── 핵심 수정 ──────────────────────────────────────────────────
+      // 모바일 뷰포트(390px)에서 캡처하면 PDF도 모바일 크기로 나옴
+      // 캡처 직전에 800px 데스크톱 너비로 강제 확장 → A4에 맞는 비율로 캡처
+      el.style.setProperty('width', '800px', 'important')
+      el.style.setProperty('max-width', 'none', 'important')
+      el.style.setProperty('overflow-x', 'visible', 'important')
+
+      // DOM 리플로우 완료 대기 (2프레임 + 150ms)
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+      await new Promise(r => setTimeout(r, 150))
+      // ───────────────────────────────────────────────────────────────
 
       const canvas = await html2canvas(el, {
         scale: 2,
@@ -268,6 +279,7 @@ export default function App() {
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
+        windowWidth: 800,   // CSS 미디어쿼리·너비 계산을 800px 기준으로
       })
 
       const imgData  = canvas.toDataURL('image/png')
@@ -306,6 +318,12 @@ export default function App() {
       console.error(e)
       window.print()   // 최후 폴백
     } finally {
+      // 에러가 나도 반드시 원래 스타일 복구
+      if (el) {
+        el.style.removeProperty('width')
+        el.style.removeProperty('max-width')
+        el.style.removeProperty('overflow-x')
+      }
       setPrinting(false)
     }
   }
