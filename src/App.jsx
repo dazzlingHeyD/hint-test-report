@@ -255,34 +255,37 @@ export default function App() {
     const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent)
     if (!isMobile) { window.print(); return }
 
-    // 모바일: PDF 생성 → 공유(Share Sheet) → 블루투스/AirPrint 프린터
+    // 모바일: 오프스크린 클론 캡처 → PDF → Share Sheet → 블루투스/AirPrint
     setPrinting(true)
-    const el = document.getElementById('report-print')
+    let offScreen = null
+
     try {
-      if (!el) { window.print(); return }
+      const el = document.getElementById('report-print')
+      if (!el) return   // ⚠️ window.print() 금지 – iOS PWA에서 앱 리로드 발생
 
-      // ── 핵심 수정 ──────────────────────────────────────────────────
-      // 모바일 뷰포트(390px)에서 캡처하면 PDF도 모바일 크기로 나옴
-      // 캡처 직전에 800px 데스크톱 너비로 강제 확장 → A4에 맞는 비율로 캡처
-      el.style.setProperty('width', '800px', 'important')
-      el.style.setProperty('max-width', 'none', 'important')
-      el.style.setProperty('overflow-x', 'visible', 'important')
+      // ── 오프스크린 클론 방식 ───────────────────────────────────────
+      // 라이브 DOM 직접 수정 시 iOS가 800px overflow를 감지,
+      // 메모리 압박으로 PWA를 kill → React 상태 초기화(register 화면) 문제 발생.
+      // 해결: 화면 밖(-10000px)에 800px 클론을 생성해 캡처 후 즉시 제거.
+      offScreen = document.createElement('div')
+      offScreen.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;background:#f0f2f5;z-index:-9999;pointer-events:none;'
+      offScreen.appendChild(el.cloneNode(true))
+      document.body.appendChild(offScreen)
 
-      // DOM 리플로우 완료 대기 (2프레임 + 150ms)
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
-      await new Promise(r => setTimeout(r, 150))
+      await new Promise(r => setTimeout(r, 200))   // 클론 렌더링 대기
       // ───────────────────────────────────────────────────────────────
 
-      const canvas = await html2canvas(el, {
-        scale: 2,
+      const canvas = await html2canvas(offScreen.firstChild, {
+        scale: 1.5,           // 2→1.5: 메모리 사용량 44% 절감
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
-        windowWidth: 800,   // CSS 미디어쿼리·너비 계산을 800px 기준으로
+        windowWidth: 800,
       })
 
-      const imgData  = canvas.toDataURL('image/png')
+      // JPEG 압축으로 PDF 크기 추가 절감
+      const imgData  = canvas.toDataURL('image/jpeg', 0.85)
       const pdf      = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' })
       const pageW    = 210
       const pageH    = 297
@@ -290,13 +293,12 @@ export default function App() {
       const imgH     = (canvas.height * imgW) / canvas.width
       let   y        = 0
 
-      // 여러 페이지 처리
-      pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH)
+      pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH)
       let remaining = imgH - pageH
       while (remaining > 0) {
         y -= pageH
         pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH)
+        pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH)
         remaining -= pageH
       }
 
@@ -304,11 +306,9 @@ export default function App() {
       const fileName = `힌트_진단리포트_${student.name}.pdf`
       const file     = new File([blob], fileName, { type:'application/pdf' })
 
-      // iOS Share Sheet로 공유 → 프린트 선택
       if (navigator.canShare?.({ files:[file] })) {
         await navigator.share({ files:[file], title:fileName })
       } else {
-        // 폴백: 다운로드
         const url = URL.createObjectURL(blob)
         const a   = document.createElement('a')
         a.href    = url; a.download = fileName
@@ -317,17 +317,11 @@ export default function App() {
     } catch (e) {
       // AbortError = 사용자가 공유 시트를 취소한 것 → 정상, 무시
       if (e?.name !== 'AbortError') {
-        console.error(e)
-        alert('PDF 생성에 실패했습니다. 다시 시도해주세요.')
-        // ⚠️ window.print() 호출 금지: iOS PWA에서 앱 리로드 발생
+        console.error('print error:', e)
+        alert('PDF 생성에 실패했습니다.\n' + (e?.message || String(e)))
       }
     } finally {
-      // 에러가 나도 반드시 원래 스타일 복구
-      if (el) {
-        el.style.removeProperty('width')
-        el.style.removeProperty('max-width')
-        el.style.removeProperty('overflow-x')
-      }
+      if (offScreen?.parentNode) document.body.removeChild(offScreen)
       setPrinting(false)
     }
   }
