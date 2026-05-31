@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { DB, UNIT_NAMES } from './data/db'
 import { getConnections } from './data/connections'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 
 /* ── 브랜드 ── */
 const N = '#0B1F3A'
@@ -247,14 +249,64 @@ export default function App() {
   }
   const badge = gradeBadge(pct)
 
-  const handlePrint = () => {
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
-    const isStandalone = window.navigator.standalone === true
-    if (isIos && isStandalone) {
-      // PWA 홈화면 앱 모드: Safari로 열어서 인쇄
-      window.open(window.location.href, '_blank')
-    } else {
-      window.print()
+  const [printing, setPrinting] = useState(false)
+
+  const handlePrint = async () => {
+    const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent)
+    if (!isMobile) { window.print(); return }
+
+    // 모바일: PDF 생성 → 공유(Share Sheet) → 블루투스/AirPrint 프린터
+    setPrinting(true)
+    try {
+      // 인쇄 대상 요소
+      const el = document.getElementById('report-print')
+      if (!el) { window.print(); return }
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      })
+
+      const imgData  = canvas.toDataURL('image/png')
+      const pdf      = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' })
+      const pageW    = 210
+      const pageH    = 297
+      const imgW     = pageW
+      const imgH     = (canvas.height * imgW) / canvas.width
+      let   y        = 0
+
+      // 여러 페이지 처리
+      pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH)
+      let remaining = imgH - pageH
+      while (remaining > 0) {
+        y -= pageH
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH)
+        remaining -= pageH
+      }
+
+      const blob     = pdf.output('blob')
+      const fileName = `힌트_진단리포트_${student.name}.pdf`
+      const file     = new File([blob], fileName, { type:'application/pdf' })
+
+      // iOS Share Sheet로 공유 → 프린트 선택
+      if (navigator.canShare?.({ files:[file] })) {
+        await navigator.share({ files:[file], title:fileName })
+      } else {
+        // 폴백: 다운로드
+        const url = URL.createObjectURL(blob)
+        const a   = document.createElement('a')
+        a.href    = url; a.download = fileName
+        a.click(); URL.revokeObjectURL(url)
+      }
+    } catch (e) {
+      console.error(e)
+      window.print()   // 최후 폴백
+    } finally {
+      setPrinting(false)
     }
   }
 
@@ -691,13 +743,13 @@ ${typeList || '없음'}
           <button onClick={()=>setScreen('errortype')} style={{ background:'rgba(255,255,255,0.12)', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor:'pointer' }}>← 수정</button>
           <button onClick={()=>setScreen('students')} style={{ background:'rgba(255,255,255,0.12)', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor:'pointer' }}>👥 학생 목록</button>
           <button onClick={()=>{ editingId.current=null; goBack() }} style={{ background:O, color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor:'pointer' }}>+ 새 학생</button>
-          <button onClick={handlePrint} style={{ background:'rgba(255,255,255,0.12)', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-            {window.navigator.standalone ? '🖨 Safari로 인쇄' : '🖨 인쇄'}
+          <button onClick={handlePrint} disabled={printing} style={{ background: printing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor: printing ? 'default' : 'pointer', opacity: printing ? 0.7 : 1 }}>
+            {printing ? '⏳ 생성 중…' : (window.navigator.standalone ? '🖨 Safari로 인쇄' : '🖨 인쇄')}
           </button>
         </div>
       </header>
 
-      <div style={{ maxWidth:800, margin:'0 auto', padding:'28px 20px 60px' }}>
+      <div id="report-print" style={{ maxWidth:800, margin:'0 auto', padding:'28px 20px 60px' }}>
 
         {/* ① 리포트 헤더 */}
         <div style={{ background:`linear-gradient(135deg,${N},#1a3a6b)`, borderRadius:20, padding:'28px 32px', marginBottom:20, boxShadow:'0 8px 32px rgba(11,31,58,0.18)' }}>
