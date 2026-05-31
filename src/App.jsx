@@ -315,8 +315,12 @@ export default function App() {
         a.click(); URL.revokeObjectURL(url)
       }
     } catch (e) {
-      console.error(e)
-      window.print()   // 최후 폴백
+      // AbortError = 사용자가 공유 시트를 취소한 것 → 정상, 무시
+      if (e?.name !== 'AbortError') {
+        console.error(e)
+        alert('PDF 생성에 실패했습니다. 다시 시도해주세요.')
+        // ⚠️ window.print() 호출 금지: iOS PWA에서 앱 리로드 발생
+      }
     } finally {
       // 에러가 나도 반드시 원래 스타일 복구
       if (el) {
