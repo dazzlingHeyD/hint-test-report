@@ -252,8 +252,10 @@ export default function App() {
   const [printing, setPrinting] = useState(false)
 
   const handlePrint = async () => {
-    const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent)
-    if (!isMobile) { window.print(); return }
+    // PWA 홈화면 앱(standalone)일 때만 PDF 방식 사용
+    // Safari 브라우저에서는 window.print()가 바로 AirPrint 다이얼로그를 띄움
+    const isStandalone = window.navigator.standalone === true
+    if (!isStandalone) { window.print(); return }
 
     // 모바일: 오프스크린 클론 캡처 → PDF → Share Sheet → 블루투스/AirPrint
     setPrinting(true)
@@ -760,7 +762,7 @@ ${typeList || '없음'}
           <button onClick={()=>setScreen('students')} style={{ background:'rgba(255,255,255,0.12)', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor:'pointer' }}>👥 학생 목록</button>
           <button onClick={()=>{ editingId.current=null; goBack() }} style={{ background:O, color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor:'pointer' }}>+ 새 학생</button>
           <button onClick={handlePrint} disabled={printing} style={{ background: printing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:13, fontWeight:600, cursor: printing ? 'default' : 'pointer', opacity: printing ? 0.7 : 1 }}>
-            {printing ? '⏳ 생성 중…' : (window.navigator.standalone ? '🖨 Safari로 인쇄' : '🖨 인쇄')}
+            {printing ? '⏳ 생성 중…' : '🖨 인쇄'}
           </button>
         </div>
       </header>
