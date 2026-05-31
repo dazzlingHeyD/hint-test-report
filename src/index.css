@@ -1,0 +1,108 @@
+/* ─── 글로벌 리셋 & 힌트 브랜드 변수 ─── */
+:root {
+  --navy:   #0B1F3A;
+  --orange: #F37022;
+  --cream:  #FAFAF7;
+  --navy-80: rgba(11,31,58,0.8);
+  --orange-10: rgba(243,112,34,0.1);
+  --orange-20: rgba(243,112,34,0.2);
+  --shadow-sm: 0 2px 8px rgba(11,31,58,0.08);
+  --shadow-md: 0 4px 20px rgba(11,31,58,0.12);
+  --shadow-lg: 0 8px 32px rgba(11,31,58,0.16);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --transition: all 0.2s ease;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cream);
+  color: var(--navy);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ─── 스크롤바 ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--navy-80); border-radius: 3px; }
+
+/* ─── 공통 애니메이션 ─── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.04); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  0%   { background-position: -1000px 0; }
+  100% { background-position:  1000px 0; }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.4s ease both;
+}
+
+/* ─── 공통 버튼 ─── */
+.btn-primary {
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  padding: 14px 32px;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #d45e14;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(243,112,34,0.4);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--navy);
+  border: 2px solid var(--navy);
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+}
+.btn-ghost:hover {
+  background: var(--navy);
+  color: #fff;
+}
+
+/* ─── 인쇄 ─── */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
